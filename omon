@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2010  Vitaly Sinilin
+# Copyright (c) 2011  Vitaly Sinilin
 #
 # This script is intended to be executed by cron, so it generates an output
 # only when something bad happens.
@@ -11,6 +11,7 @@ HOSTS="10.65.160.1 10.255.255.254 google.com ya.ru"
 
 LOG_FILE=/var/log/omon.log
 FLAG_FILE=/var/state/omon/omon.outage
+TMP_FILE_PREFIX=/tmp/omon-$$-
 WARN_THRESHOLD=5000               # value above this will generate warning
 OUTAGE_THRESHOLD=10000            # value above this will be treated as outage
 export LANG=C                     # disable nls stuff
@@ -30,17 +31,28 @@ if [ -f "$LOG_FILE" ]; then
    last=$(tail -n 1 "$LOG_FILE" | sed 's/^.* loss: //;s/\n$//')
 fi
 
-# Estimate current network state using ping command.
+# Estimate current network state using asynchronous ping commands.
+
+for host in $HOSTS; do
+   (ping -c 5 -q "$host" 2>/dev/null | \
+      sed '/packet loss/{s/^.* \([0-9]\+\)% packet loss.*$/\1/;q};d' \
+      2>/dev/null > "$TMP_FILE_PREFIX$host")&
+done
+
+# Wait for ping completion.
+
+wait
+
+# Analyse ping results.
 
 set ${FACTORS:-''}
 for host in $HOSTS; do
-   percent=$(ping -c 5 -q $host 2>/dev/null | \
-      sed '/packet loss/{s/^.* \([0-9]\+\)% packet loss.*$/\1/;q;};d;' \
-      2>/dev/null)
+   percent=$(cat "$TMP_FILE_PREFIX$host")
    : ${percent:=100}
    factor=${1:-100}
    log="$log$host: $percent; "
    sum=$(($sum + $percent * $factor))
+   rm "$TMP_FILE_PREFIX$host"
    shift
 done
 
