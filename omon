@@ -1,0 +1,73 @@
+#!/bin/bash
+#
+# Copyright (c) 2010  Vitaly Sinilin
+#
+# This script is intended to be executed by cron, so it generates an output
+# only when something bad happens.
+#
+
+FACTORS=(100 50 50 50)
+HOSTS=(10.65.160.1 10.255.255.254 google.com ya.ru)
+
+LOG_FILE=/var/log/omon.log
+FLAG_FILE=/var/state/omon/omon.outage
+WARN_THRESHOLD=5000               # value above this will generate warning
+OUTAGE_THRESHOLD=10000            # value above this will be treated as outage
+export LANG=C                     # disable nls stuff
+
+date=$(date +"%b %d %H:%M:%S")
+sum=0
+log=
+last=
+
+# Make our temporary files a little bit securer.
+
+umask 077
+
+# Get last network state from log.
+
+if [ -f "$LOG_FILE" ]; then
+   last=$(tail -n 1 "$LOG_FILE" | sed 's/^.* loss: //;s/\n$//')
+fi
+
+# Estimate current network state using ping command.
+
+for index in $(seq 0 $[${#HOSTS[@]} - 1]); do
+   percent=$(ping -c 5 -q ${HOSTS[$index]} 2>/dev/null | \
+      sed '/packet loss/{s/^.* \([0-9]\+\)% packet loss.*$/\1/;q;};d;' \
+      2>/dev/null)
+   [ -z "$percent" ] && percent=100
+   log="$log${HOSTS[$index]}: $percent; "
+   sum=$(echo $sum + $percent*${FACTORS[$index]} | bc)
+done
+
+# Log if network state has changed.
+
+if [ "$last" != "$log" -a \( $sum -ge $WARN_THRESHOLD -o -f "$FLAG_FILE" \) ]
+then
+   echo "$date loss: $log" >> "$LOG_FILE"
+fi
+
+# Check current network state.
+
+if [ $sum -ge $OUTAGE_THRESHOLD ]; then
+   # OMG! it is an outage
+   if [ ! -f "$FLAG_FILE" ]; then
+      echo "$date" > "$FLAG_FILE"
+      echo "ATTENTION! Network outage has come on $date!"
+   fi
+   exit
+elif [ $sum -gt $WARN_THRESHOLD ]; then
+   # Just inform user about degradation.
+   echo "$date loss: $log"
+fi
+
+# Check if an outage has been overpassed.
+
+if [ -f "$FLAG_FILE" ]; then
+   from=$(cat "$FLAG_FILE")
+   echo "There was an outage from $from till $date."
+   echo
+   sed "/$from/,\$p;d" "$LOG_FILE"
+   rm "$FLAG_FILE"
+fi
