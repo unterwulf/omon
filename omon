@@ -2,6 +2,20 @@
 #
 # Copyright (c) 2011  Vitaly Sinilin
 #
+# omon (Online Monitor) is a script that helps system administrator to monitor
+# availability of the host.  It is meant to be periodically run by the host
+# itself and so does not require access to some remote monitoring host.
+#
+# To assess itself host availability the script pings specified internet
+# hosts.  A typical configuration is to ping well known public internet
+# services.  (Make sure they respond to pings!)
+#
+# As the main focus of the script is to just log host availability, the script
+# has no any other means to report outage except stdout.  So you will have
+# to use some kind of wrapper in case you need an immediate reaction on outage.
+# (Note, as the script is running on the host side, the wrapper may not be able
+# to send outage notification via the Internet.  However, SMS may be an option.)
+#
 # This script is intended to be executed by cron, so it generates an output
 # only when something bad happens.
 #
