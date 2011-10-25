@@ -57,7 +57,7 @@ if [ $sum -ge $OUTAGE_THRESHOLD ]; then
       echo "ATTENTION! Network outage has come on $date!"
    fi
    exit
-elif [ $sum -gt $WARN_THRESHOLD ]; then
+elif [ $sum -ge $WARN_THRESHOLD ]; then
    # Just inform user about degradation.
    echo "$date loss: $log"
 fi
