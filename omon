@@ -6,15 +6,25 @@
 # only when something bad happens.
 #
 
-FACTORS="100 50 50 50"
-HOSTS="10.65.160.1 10.255.255.254 google.com ya.ru"
+if [ $# -ne 1 ] || [ "$1" == -h ] || [ "$1" == --help ]; then
+   echo "usage: omon <configfile>"
+   exit 1
+fi
 
-LOG_FILE=/var/log/omon.log
-FLAG_FILE=/var/state/omon/omon.outage
-TMP_FILE_PREFIX=/tmp/omon-$$-
-WARN_THRESHOLD=5000               # value above this will generate warning
-OUTAGE_THRESHOLD=10000            # value above this will be treated as outage
+. $1                              # load config file
 export LANG=C                     # disable nls stuff
+
+if [ -z "$HOSTS" ]; then
+   echo "Host list is empty.  Bad config?"
+   exit 1
+fi
+
+: ${LOG_FILE:=/var/log/omon.log}
+: ${FLAG_FILE:=/var/state/omon/omon.outage}
+: ${TMP_FILE_PREFIX:=/tmp/omon-$$-}
+
+: ${WARN_THRESHOLD:=5000}     # value above this will generate warning
+: ${OUTAGE_THRESHOLD:=10000}  # value above this will be treated as outage
 
 date=$(date +"%b %d %H:%M:%S")
 sum=0
