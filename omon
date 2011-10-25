@@ -20,7 +20,8 @@ if [ -z "$HOSTS" ]; then
 fi
 
 : ${LOG_FILE:=/var/log/omon.log}
-: ${FLAG_FILE:=/var/state/omon/omon.outage}
+: ${STATE_FILE:=/var/state/omon/omon.state}
+: ${OUTAGE_FILE:=/var/state/omon/omon.outage}
 : ${TMP_FILE_PREFIX:=/tmp/omon-$$-}
 
 : ${WARN_THRESHOLD:=5000}     # value above this will generate warning
@@ -35,11 +36,9 @@ last=
 
 umask 077
 
-# Get last network state from log.
+# Get last network state.
 
-if [ -f "$LOG_FILE" ]; then
-   last=$(tail -n 1 "$LOG_FILE" | sed 's/^.* loss: //;s/\n$//')
-fi
+[ -f "$STATE_FILE" ] && last=$(cat "$STATE_FILE")
 
 # Estimate current network state using asynchronous ping commands.
 
@@ -69,17 +68,18 @@ done
 # Log if network state has changed.
 
 if [ "$last" != "$log" ] && \
-   ([ $sum -ge $WARN_THRESHOLD ] || [ -f "$FLAG_FILE" ])
+   ([ $sum -ge $WARN_THRESHOLD ] || [ -f "$OUTAGE_FILE" ])
 then
    echo "$date loss: $log" >> "$LOG_FILE"
+   echo "$log" > "$STATE_FILE"
 fi
 
 # Check current network state.
 
 if [ $sum -ge $OUTAGE_THRESHOLD ]; then
    # OMG! It is an outage.
-   if [ ! -f "$FLAG_FILE" ]; then
-      echo "$date" > "$FLAG_FILE"
+   if [ ! -f "$OUTAGE_FILE" ]; then
+      echo "$date" > "$OUTAGE_FILE"
       echo "ATTENTION! Network outage has come on $date!"
    fi
    exit
@@ -90,10 +90,10 @@ fi
 
 # Check if an outage has been overpassed.
 
-if [ -f "$FLAG_FILE" ]; then
-   from=$(cat "$FLAG_FILE")
+if [ -f "$OUTAGE_FILE" ]; then
+   from=$(cat "$OUTAGE_FILE")
    echo "There was an outage from $from till $date."
    echo
    sed "/$from/,\$p;d" "$LOG_FILE"
-   rm "$FLAG_FILE"
+   rm "$OUTAGE_FILE"
 fi
