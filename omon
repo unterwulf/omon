@@ -29,7 +29,7 @@ fi
 
 date=$(date +"%b %d %H:%M:%S")
 sum=0
-log=
+state=
 last=
 
 # Make our temporary files a little bit securer.
@@ -59,7 +59,7 @@ for host in $HOSTS; do
    percent=$(cat "$TMP_FILE_PREFIX$host")
    : ${percent:=100}
    factor=${1:-100}
-   log="$log$host: $percent; "
+   state="$state$host: $percent; "
    sum=$(($sum + $percent * $factor))
    rm "$TMP_FILE_PREFIX$host"
    shift
@@ -67,11 +67,11 @@ done
 
 # Log if network state has changed.
 
-if [ "$last" != "$log" ] && \
+if [ "$last" != "$state" ] && \
    ([ $sum -ge $WARN_THRESHOLD ] || [ -f "$OUTAGE_FILE" ])
 then
-   echo "$date loss: $log" >> "$LOG_FILE"
-   echo "$log" > "$STATE_FILE"
+   echo "$date loss: $state" >> "$LOG_FILE"
+   echo "$state" > "$STATE_FILE"
 fi
 
 # Check current network state.
@@ -85,7 +85,7 @@ if [ $sum -ge $OUTAGE_THRESHOLD ]; then
    exit
 elif [ $sum -ge $WARN_THRESHOLD ]; then
    # Just inform user about degradation.
-   echo "$date loss: $log"
+   echo "$date loss: $state"
 fi
 
 # Check if an outage has been overpassed.
